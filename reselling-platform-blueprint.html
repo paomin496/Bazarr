@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Language Reselling Platform — Technical Blueprint</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #5a5a5a;
+    --accent: #0f6e5c;
+    --accent-soft: #e6f3f0;
+    --border: #e2e2e2;
+    --code-bg: #f6f7f8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  h1 {
+    font-size: 1.9rem;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0 0 40px;
+    font-size: 1rem;
+  }
+  h2 {
+    font-size: 1.25rem;
+    margin: 48px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent);
+    color: var(--accent);
+  }
+  h2 .num {
+    color: var(--muted);
+    font-weight: 500;
+    margin-right: 6px;
+  }
+  p { margin: 0 0 14px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 20px;
+    font-size: 0.92rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:hover td { background: #fafafa; }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.55;
+  }
+  code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    background: var(--code-bg);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+  pre code { background: none; padding: 0; }
+  ul, ol { margin: 0 0 16px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  .callout {
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    padding: 14px 18px;
+    border-radius: 4px;
+    margin: 16px 0 24px;
+    font-size: 0.95rem;
+  }
+  .callout.warn {
+    background: #fff7e6;
+    border-left-color: #b8860b;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0;
+  }
+  .next-step {
+    margin-top: 40px;
+    padding: 20px 22px;
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    background: #fbfefd;
+  }
+  .next-step h2 { border: none; margin-top: 0; padding-bottom: 0; }
+  @media print {
+    body { font-size: 11pt; }
+    .wrap { max-width: 100%; padding: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Multi-Language Reselling Platform</h1>
+  <p class="subtitle">Technical Blueprint — buyer/seller messaging model (no escrow, no bank integration)</p>
+
+  <h2><span class="num">1.</span>Tech Stack</h2>
+  <table>
+    <tr><th>Layer</th><th>Choice</th><th>Why</th></tr>
+    <tr><td>Frontend</td><td>Next.js 14 (App Router) + TypeScript + Tailwind</td><td>SSR/SEO for listings, i18n routing built-in</td></tr>
+    <tr><td>i18n</td><td><code>next-intl</code></td><td>Route-based locales: <code>/en-gb</code>, <code>/hi</code>, <code>/ja</code></td></tr>
+    <tr><td>Backend</td><td>Node.js (NestJS)</td><td>Modular, DI, good for RBAC-heavy admin panel</td></tr>
+    <tr><td>DB</td><td>PostgreSQL + Prisma ORM</td><td>Relational integrity for listings/conversations</td></tr>
+    <tr><td>Cache/Queue</td><td>Redis + BullMQ</td><td>Async jobs: notifications, fraud scans</td></tr>
+    <tr><td>File storage</td><td>S3-compatible (AWS S3 / Cloudflare R2)</td><td>Listing images</td></tr>
+    <tr><td>Auth</td><td>NextAuth.js (Facebook OAuth) + custom email/phone + TOTP MFA</td><td></td></tr>
+    <tr><td>Messaging</td><td>In-app chat (Postgres-backed) + Socket.io for real-time</td><td>Buyer/seller contact, no payment processing involved</td></tr>
+    <tr><td>Search</td><td>Postgres full-text (start), Meilisearch/Typesense (scale)</td><td></td></tr>
+    <tr><td>Hosting</td><td>AWS (ECS/Fargate + RDS + ElastiCache) or GCP equivalent</td><td></td></tr>
+    <tr><td>Monitoring</td><td>Sentry + CloudWatch/Grafana</td><td></td></tr>
+  </table>
+
+  <div class="callout">
+    <strong>No payment gateway, escrow, or bank linking in this version.</strong> Buyers and sellers connect through in-app messaging (and optionally WhatsApp) and settle payment/delivery between themselves. This removes the need for a licensed payment aggregator, KYC/AML flows, and bank account linking entirely — the platform's role is discovery, listings, and connecting buyer to seller, with the owner available to mediate disputes manually.
+  </div>
+
+  <hr>
+
+  <h2><span class="num">2.</span>Database Schema (core tables)</h2>
+<pre><code>users
+  id (uuid, pk)
+  email (unique, nullable)
+  phone (unique, nullable)
+  facebook_id (nullable)
+  password_hash (nullable)  -- null if OAuth-only
+  mfa_secret (nullable)
+  role (enum: user, admin)
+  status (enum: active, suspended, banned)
+  locale (enum: en-gb, hi, ja)
+  created_at, updated_at
+
+profiles
+  user_id (fk -> users)
+  display_name, bio, avatar_url
+  rating_avg (numeric), rating_count (int)
+
+listings
+  id, seller_id (fk -> users)
+  title, description
+  category_id (fk -> categories)
+  condition (enum: new, used, refurbished)
+  price_inr (numeric)
+  status (enum: draft, active, flagged, sold, removed)
+  created_at, updated_at
+
+listing_images
+  id, listing_id (fk), url, sort_order
+
+categories
+  id, parent_id (nullable), name_en, name_hi, name_ja
+
+conversations
+  id, listing_id (fk), buyer_id (fk -> users), seller_id (fk -> users)
+  status (enum: open, seller_confirmed_sale, closed)
+  created_at, updated_at
+  -- unique constraint on (listing_id, buyer_id) so a buyer has one thread per listing
+
+messages
+  id, conversation_id (fk), sender_id (fk -> users)
+  body_text, created_at, read_at (nullable)
+
+disputes
+  id, conversation_id (fk), raised_by (fk -> users)
+  reason, status (enum: open, investigating, resolved)
+  resolution_note, resolved_by (fk -> users, admin), resolved_at
+
+reports
+  id, listing_id (nullable fk), reported_user_id (nullable fk)
+  reporter_id (fk), reason, status (enum: open, reviewed, dismissed)
+
+reviews
+  id, conversation_id (fk), reviewer_id (fk), reviewee_id (fk)
+  rating (1-5), comment
+  -- reviews can be submitted once a conversation is marked seller_confirmed_sale
+
+cms_pages
+  id, slug, locale, title, body_markdown, updated_at
+</code></pre>
+
+  <hr>
+
+  <h2><span class="num">3.</span>API Endpoints (REST, versioned <code>/api/v1</code>)</h2>
+
+  <p><strong>Auth</strong></p>
+  <ul>
+    <li><code>POST /auth/register</code> (email/phone), <code>POST /auth/verify-otp</code></li>
+    <li><code>POST /auth/login</code>, <code>POST /auth/facebook/callback</code></li>
+    <li><code>POST /auth/mfa/enable</code>, <code>POST /auth/mfa/verify</code></li>
+  </ul>
+
+  <p><strong>Users</strong></p>
+  <ul>
+    <li><code>GET /users/me</code>, <code>PATCH /users/me</code></li>
+    <li><code>GET /users/:id</code> (public profile)</li>
+  </ul>
+
+  <p><strong>Listings</strong></p>
+  <ul>
+    <li><code>GET /listings</code> (query: q, category, minPrice, maxPrice, condition, sellerRating)</li>
+    <li><code>POST /listings</code>, <code>PATCH /listings/:id</code>, <code>DELETE /listings/:id</code></li>
+    <li><code>POST /listings/:id/images</code></li>
+    <li><code>POST /listings/:id/report</code></li>
+  </ul>
+
+  <p><strong>Contact Seller / Messaging</strong></p>
+  <ul>
+    <li><code>POST /listings/:id/message</code> — buyer taps "Message Seller"; creates (or reuses) a conversation and sends the first message</li>
+    <li><code>GET /conversations</code> — mine, as buyer or seller</li>
+    <li><code>GET /conversations/:id/messages</code></li>
+    <li><code>POST /conversations/:id/messages</code></li>
+    <li><code>PATCH /conversations/:id</code> — seller marks <code>seller_confirmed_sale</code> once a deal is done off-platform (unlocks reviews)</li>
+    <li>Real-time delivery via Socket.io room per conversation; falls back to polling if socket unavailable</li>
+  </ul>
+
+  <p><strong>Disputes</strong></p>
+  <ul>
+    <li><code>POST /conversations/:id/disputes</code></li>
+    <li><code>GET /disputes/:id</code></li>
+  </ul>
+
+  <p><strong>Admin</strong> (role=admin guard on all)</p>
+  <ul>
+    <li><code>GET /admin/dashboard/stats</code></li>
+    <li><code>GET/PATCH/DELETE /admin/users/:id</code>, <code>POST /admin/users/:id/suspend</code></li>
+    <li><code>GET/PATCH/DELETE /admin/listings/:id</code></li>
+    <li><code>GET /admin/disputes</code>, <code>POST /admin/disputes/:id/resolve</code></li>
+    <li><code>GET/PATCH /admin/cms/:slug</code></li>
+  </ul>
+
+  <hr>
+
+  <h2><span class="num">4.</span>Key Flow — Message Seller</h2>
+  <ol>
+    <li>Buyer views a listing, taps <strong>"Message Seller"</strong> → <code>POST /listings/:id/message</code> with an initial note (e.g. "Is this still available?").</li>
+    <li>Backend creates a <code>conversations</code> row (or reuses the existing one for that buyer+listing) and the first <code>messages</code> row; seller gets a notification (in-app + email/SMS, optionally WhatsApp deep link).</li>
+    <li>Buyer and seller negotiate price, payment, and delivery entirely in the chat thread — the platform does not process payment or hold funds.</li>
+    <li>Once they've agreed and completed the deal (however they choose to pay/ship), the seller marks the conversation <code>seller_confirmed_sale</code>. This flips the listing to <code>sold</code> and unlocks mutual reviews.</li>
+    <li>If something goes wrong, either party can raise a dispute on the conversation; the admin reviews the message log and mediates manually (no funds to release/refund since none were held).</li>
+  </ol>
+  <p>This keeps the platform's role to <strong>discovery + trusted introduction</strong>, not transaction processing — much simpler to build and no financial licensing requirements.</p>
+
+  <hr>
+
+  <h2><span class="num">5.</span>Project Structure</h2>
+<pre><code>/apps
+  /web            (Next.js frontend)
+    /app/[locale]/...
+    /messages/en-gb.json, hi.json, ja.json
+  /api            (NestJS backend)
+    /src/modules/auth
+    /src/modules/users
+    /src/modules/listings
+    /src/modules/conversations
+    /src/modules/disputes
+    /src/modules/admin
+    /prisma/schema.prisma
+/packages
+  /shared-types
+</code></pre>
+
+  <hr>
+
+  <h2><span class="num">6.</span>WhatsApp Integration</h2>
+  <p>Two uses, both simple deep links — no WhatsApp Business API needed for MVP:</p>
+  <ol>
+    <li><strong>Owner support button</strong> (site-wide, floating): contacts the platform owner directly.
+<pre><code>https://wa.me/919366166225?text=Need%20help%20with%20listing%20{listingId}</code></pre>
+    </li>
+    <li><strong>Optional "Message Seller" fallback</strong>: if a seller hasn't set up in-app notifications, offer a WhatsApp deep link to their number (only if they've opted to share it on their profile) alongside the in-app chat button.</li>
+  </ol>
+
+  <hr>
+
+  <h2><span class="num">7.</span>Security &amp; Non-Functional Checklist</h2>
+  <ul>
+    <li>Argon2/bcrypt password hashing; JWT + refresh tokens; MFA via TOTP (speakeasy/otplib)</li>
+    <li>Rate limiting (per-IP + per-user) on auth and listing-creation endpoints</li>
+    <li>Input validation (class-validator/zod), parameterized queries via Prisma (SQL-injection safe)</li>
+    <li>CSP, HSTS, SSL/TLS everywhere; secrets in a vault (AWS Secrets Manager), never in repo</li>
+    <li>Fraud flagging: rule-based first (price outliers, duplicate images/text, new-account+high-price), ML-assisted later</li>
+    <li>Testing: unit (Jest), integration (supertest against test DB), e2e (Playwright) covering the messaging and dispute flows</li>
+    <li>Audit log table for all admin actions (who did what, when)</li>
+  </ul>
+
+  <hr>
+
+  <h2><span class="num">8.</span>What's Genuinely "Fill in Credentials" vs. Needs Real Setup</h2>
+  <table>
+    <tr><th>Item</th><th>Status</th></tr>
+    <tr><td>Facebook OAuth</td><td>Needs a registered Meta app + App ID/Secret</td></tr>
+    <tr><td>Payments/escrow/bank linking</td><td><strong>Removed</strong> — buyers and sellers arrange payment and delivery themselves via chat</td></tr>
+    <tr><td>WhatsApp</td><td>No API required for a click-to-chat link; WhatsApp Business API only needed for automated notifications</td></tr>
+    <tr><td>Hosting/domain/SSL</td><td>Standard AWS/GCP setup, certbot or ACM</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <strong>Trade-off to keep in mind:</strong> without escrow, the platform can't guarantee a buyer gets their money back or a seller gets paid — it's closer to an OLX/Craigslist model than an eBay-with-buyer-protection model. Fraud prevention (listing flagging, reporting, ratings) matters more here since there's no financial safety net. Worth deciding early whether that trade-off is acceptable, or whether a lighter-weight option (e.g. just displaying a UPI ID for manual transfer, no platform involvement) is worth adding later without going all the way to escrow.
+  </div>
+
+  <div class="next-step">
+    <h2 style="border:none;">Next Step</h2>
+    <p style="margin:0;">Real starter code can be scaffolded next — e.g., the Prisma schema file, the NestJS auth + listings + conversations modules, or the Next.js listing page with i18n wired up. Generating the entire codebase in one pass isn't realistic to do well, so it's worth picking a piece to start with.</p>
+  </div>
+
+</div>
+</body>
+</html>
